@@ -1,0 +1,70 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Proposal {
+  id                String     @id @default(cuid())
+  title             String
+  description       String
+  actionType        String     // "BUY_TOKEN", "DONATE", "MINT_NFT", "DEPLOY_TOKEN", "FUND_COMPUTE"
+  actionParams      String     // JSON string with action-specific parameters
+  goalAmount        Float      // Target amount in USDC
+  currentAmount     Float      @default(0)
+  deadline          DateTime?
+  status            String     @default("ACTIVE") // "ACTIVE", "FUNDED", "EXECUTING", "EXECUTED", "FAILED"
+  executionTxHash   String?
+  executionReceipt  String?    // JSON string with execution details
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  payments          Payment[]
+  transactions      Transaction[]
+}
+
+model Payment {
+  id                String     @id @default(cuid())
+  proposalId        String
+  proposal          Proposal   @relation(fields: [proposalId], references: [id])
+  chain             String     // "SOLANA" or "BASE"
+  amount            Float      // Amount in USDC
+  payerAddress      String
+  transactionHash   String     @unique
+  status            String     @default("PENDING") // "PENDING", "CONFIRMED", "FAILED"
+  verifiedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  
+  @@index([proposalId])
+  @@index([transactionHash])
+}
+
+model Transaction {
+  id                String     @id @default(cuid())
+  proposalId        String?
+  proposal          Proposal?  @relation(fields: [proposalId], references: [id])
+  type              String     // "PAYMENT", "EXECUTION", "REFUND"
+  chain             String     // "SOLANA" or "BASE"
+  transactionHash   String     @unique
+  fromAddress       String
+  toAddress         String
+  amount            Float
+  status            String     @default("PENDING") // "PENDING", "CONFIRMED", "FAILED"
+  metadata          String?    // JSON string with additional details
+  createdAt         DateTime   @default(now())
+  
+  @@index([proposalId])
+  @@index([type])
+}
+
+model AgentState {
+  id                String     @id @default(cuid())
+  key               String     @unique
+  value             String     // JSON string for flexible state storage
+  updatedAt         DateTime   @updatedAt
+}
+
